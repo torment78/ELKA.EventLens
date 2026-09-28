@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $assets = Join-Path $repoRoot 'docs/assets'
 $cards = Join-Path $repoRoot 'docs/official-cards'
@@ -38,5 +39,38 @@ Export-Image -Source (Join-Path $cards 'ELKA-EventLens-Vertical.png') -Destinati
 Export-Image -Source (Join-Path $repoRoot 'src/ELKA.EventLens.App/Assets/EventLens-v1.png') -Destination (Join-Path $branding 'wizard-small.png') -Width 128 -Height 128
 
 $preview = Get-Item -LiteralPath (Join-Path $assets 'github-social-preview.jpg')
-if ($preview.Length -gt 1MB) { throw 'GitHub preview exceeds the 1 MB budget.' }
-Get-Item -LiteralPath $preview.FullName,(Join-Path $cards 'ELKA-EventLens-Vertical-Web.jpg'),(Join-Path $branding 'wizard-left.png'),(Join-Path $branding 'wizard-small.png') | Select-Object Name,Length
+$verticalPreview = Get-Item -LiteralPath (Join-Path $cards 'ELKA-EventLens-Vertical-Web.jpg')
+foreach ($file in @($preview, $verticalPreview)) {
+    if ($file.Length -ge 1000000) { throw "$($file.Name) must remain below 1 MB." }
+}
+
+# Preserve the repository paths inside the archive so its documentation links still work.
+$packageFiles = @(
+    'docs/BRANDING.md',
+    'docs/official-cards/README.md',
+    'docs/assets/ELKA-EventLens-Header-v1.png',
+    'docs/assets/github-social-preview.jpg',
+    'docs/assets/EventLens-header-prompt.md',
+    'docs/assets/EventLens-vertical-prompt.md',
+    'docs/official-cards/ELKA-EventLens-Vertical.png',
+    'docs/official-cards/ELKA-EventLens-Vertical-Web.jpg',
+    'src/ELKA.EventLens.App/Assets/EventLens-v1.png',
+    'src/ELKA.EventLens.App/Assets/EventLens-v1.ico',
+    'src/ELKA.EventLens.App/Assets/EventLens-icon-prompt.md',
+    'Installer/Branding/README.md',
+    'Installer/Branding/ElkaSoft.png',
+    'Installer/Branding/wizard-left.png',
+    'Installer/Branding/wizard-small.png'
+)
+$package = Join-Path $cards 'ELKA-EventLens-Artwork.zip'
+$stream = [IO.File]::Open($package, [IO.FileMode]::Create, [IO.FileAccess]::Write)
+try {
+    $archive = [IO.Compression.ZipArchive]::new($stream, [IO.Compression.ZipArchiveMode]::Create, $true)
+    try {
+        foreach ($relativePath in $packageFiles) {
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, (Join-Path $repoRoot $relativePath), $relativePath, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+        }
+    } finally { $archive.Dispose() }
+} finally { $stream.Dispose() }
+
+Get-Item -LiteralPath $preview.FullName,$verticalPreview.FullName,$package,(Join-Path $branding 'wizard-left.png'),(Join-Path $branding 'wizard-small.png') | Select-Object Name,Length

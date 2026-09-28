@@ -1,0 +1,259 @@
+<Window x:Class="ELKA.EventLens.App.Views.MainWindow"
+        x:Name="Root"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:ELKA.EventLens.App.Controls"
+        xmlns:viewModels="clr-namespace:ELKA.EventLens.App.ViewModels"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        mc:Ignorable="d"
+        Title="ELKA EventLens - Development Preview"
+        Icon="/ELKA.EventLens.App;component/Assets/EventLens-v1.ico"
+        Width="1280"
+        Height="780"
+        MinWidth="1280"
+        MinHeight="600"
+        Background="{DynamicResource AppBackgroundBrush}">
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type viewModels:EventCardViewModel}">
+            <controls:EventCard />
+        </DataTemplate>
+
+        <DataTemplate x:Key="SearchTabHeaderTemplate">
+            <DockPanel LastChildFill="True"
+                       MinWidth="78"
+                       MaxWidth="104">
+                <Button DockPanel.Dock="Right"
+                        Content="x"
+                        Width="18"
+                        Height="18"
+                        MinWidth="0"
+                        MinHeight="0"
+                        Margin="7,0,0,0"
+                        Padding="0"
+                        FontSize="11"
+                        Command="{Binding DataContext.CloseSearchTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding}"
+                        Style="{StaticResource QuietButtonStyle}" />
+                <TextBlock Text="{Binding TargetLabel}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"
+                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" />
+            </DockPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SearchTabContentTemplate">
+            <Grid Background="{DynamicResource PanelBrush}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0"
+                        Background="{DynamicResource InputBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="10,8">
+                    <Grid>
+                        <TextBlock Text="{Binding Query}" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding IsAiTab}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <Expander IsExpanded="{Binding IsPromptExpanded}" Visibility="{Binding IsAiTab, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Expander.Header>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Command="{Binding CopyPromptCommand}" ToolTip="Copy prompt" Content="&#xE8C8;"
+                                            FontFamily="Segoe MDL2 Assets" Width="28" Height="26" Style="{StaticResource QuietButtonStyle}" Margin="8,0,0,0" />
+                                    <TextBlock Text="{Binding PromptStatus}" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </Expander.Header>
+                            <TextBox Text="{Binding Query, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="145"
+                                     Padding="8" Margin="0,8,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" />
+                        </Expander>
+                    </Grid>
+                </Border>
+                <ContentControl Grid.Row="1" Loaded="SearchBrowserHost_Loaded" DataContextChanged="SearchBrowserHost_DataContextChanged" />
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Background="{DynamicResource PanelBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="18,16">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" LastChildFill="True">
+                    <TextBlock Text="ELKA EventLens"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center" />
+                    <StackPanel DockPanel.Dock="Right"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right">
+                        <CheckBox Content="Notifications"
+                                  IsChecked="{Binding EnableNotifications}"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,16,0" />
+                        <Button Content="Settings"
+                                Command="{Binding OpenSettingsCommand}"
+                                Style="{StaticResource SecondaryButtonStyle}" />
+                    </StackPanel>
+                </DockPanel>
+
+                <WrapPanel Grid.Row="1" Margin="0,14,0,0" VerticalAlignment="Center">
+                    <ToggleButton Content="Critical"
+                                  IsChecked="{Binding ShowCritical}"
+                                  Style="{StaticResource FilterToggleButtonStyle}" />
+                    <ToggleButton Content="Errors"
+                                  IsChecked="{Binding ShowErrors}"
+                                  Style="{StaticResource FilterToggleButtonStyle}" />
+                    <ToggleButton Content="Warnings"
+                                  IsChecked="{Binding ShowWarnings}"
+                                  Style="{StaticResource FilterToggleButtonStyle}" />
+                    <ToggleButton Content="Application"
+                                  IsChecked="{Binding MonitorApplication}"
+                                  Style="{StaticResource FilterToggleButtonStyle}" />
+                    <ToggleButton Content="System"
+                                  IsChecked="{Binding MonitorSystem}"
+                                  Style="{StaticResource FilterToggleButtonStyle}" />
+                    <ToggleButton Content="Security"
+                                  IsChecked="{Binding MonitorSecurity}"
+                                  Style="{StaticResource FilterToggleButtonStyle}" />
+                    <TextBox Width="300"
+                             Height="34"
+                             Margin="0,0,8,8"
+                             Padding="10,6"
+                             VerticalContentAlignment="Center"
+                             ToolTip="Search source, Event ID, message, or summary"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                    <Button Content="Load recent"
+                            Command="{Binding LoadRecentCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}" />
+                    <Button Content="Clear list"
+                            Command="{Binding ClearListCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}" />
+                    <Button Content="{Binding PauseButtonText}"
+                            Command="{Binding PauseLiveCommand}"
+                            Style="{StaticResource ToolbarButtonStyle}" />
+                </WrapPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" Margin="18">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="EventListColumn" Width="*" />
+                <ColumnDefinition x:Name="SearchSplitterColumn" Width="0" />
+                <ColumnDefinition x:Name="SearchPaneColumn" Width="0" MinWidth="0" />
+            </Grid.ColumnDefinitions>
+
+            <ListBox Grid.Column="0"
+                     ItemsSource="{Binding FilteredEvents}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     ScrollViewer.CanContentScroll="True"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     VirtualizingPanel.ScrollUnit="Pixel"
+                     VirtualizingPanel.IsVirtualizing="True"
+                     VirtualizingPanel.VirtualizationMode="Recycling">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Focusable" Value="False" />
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+
+            <GridSplitter x:Name="SearchGridSplitter"
+                          Grid.Column="1"
+                          Width="8"
+                          HorizontalAlignment="Stretch"
+                          Background="{DynamicResource BorderBrush}"
+                          ResizeBehavior="PreviousAndNext"
+                          Visibility="{Binding SearchPaneVisibility}" />
+
+            <Border x:Name="SearchPaneBorder"
+                    Grid.Column="2"
+                    Visibility="{Binding SearchPaneVisibility}"
+                    Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0"
+                               LastChildFill="True"
+                               Margin="12,10,12,8">
+                        <StackPanel DockPanel.Dock="Right"
+                                    Orientation="Horizontal">
+                            <Button Content="Open external"
+                                    Command="{Binding OpenSelectedTabExternalCommand}"
+                                    Style="{StaticResource QuietButtonStyle}"
+                                    Margin="0,0,8,0" />
+                            <Button Content="Hide"
+                                    Command="{Binding CloseSearchPaneCommand}"
+                                    Style="{StaticResource QuietButtonStyle}" />
+                        </StackPanel>
+                        <TextBlock Text="Search"
+                                   FontSize="17"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <TabControl Grid.Row="1"
+                                ItemsSource="{Binding SearchTabs}"
+                                SelectedItem="{Binding SelectedSearchTab}"
+                                ItemTemplate="{StaticResource SearchTabHeaderTemplate}"
+                                ContentTemplate="{StaticResource SearchTabContentTemplate}"
+                                Margin="14,2,12,8"
+                                BorderThickness="0" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2"
+                Background="{DynamicResource PanelBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="18,8">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Right"
+                           Foreground="{DynamicResource MutedTextBrush}"
+                           Text="{Binding TotalEventCount, StringFormat=Stored events: {0}}" />
+                <TextBlock Foreground="{DynamicResource MutedTextBrush}"
+                           Text="{Binding StatusText}" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
+
+
+
+
+
+
+

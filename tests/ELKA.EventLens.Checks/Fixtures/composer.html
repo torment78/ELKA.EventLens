@@ -1,0 +1,6 @@
+<!doctype html>
+<html><head><title>Local AI composer fixture</title>
+<style>body { background: white; color: black; font: 20px sans-serif; padding: 24px; } textarea { width: 90%; height: 160px; } button { padding: 12px; }</style>
+</head><body><h1>Local browser check</h1><textarea id="prompt-textarea"></textarea>
+<button aria-label="Send" onclick="window.sends++; document.getElementById('result').textContent='Sent '+window.sends;">Send</button>
+<p id="result">Not sent</p><script>window.sends=0;</script></body></html>

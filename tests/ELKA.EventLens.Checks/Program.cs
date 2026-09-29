@@ -50,6 +50,19 @@ internal sealed class CheckApplication : System.Windows.Application
             WindowThemeService.Initialize();
             CheckLogic();
             CheckStorage();
+            await UpdateChecks.RunAsync(Check, _output);
+            if (e.Args.Contains("--live-update-check"))
+            {
+                using var client = new System.Net.Http.HttpClient();
+                var service = new AppUpdateService(client, "0.1.0-dev.1", false, Path.Combine(_output, "LiveUpdate"));
+                var release = await service.CheckAsync(CancellationToken.None);
+                Check(release is not null, "live GitHub feed discovers published development update");
+                if (e.Args.Contains("--live-update-download"))
+                {
+                    var package = await service.DownloadAsync(release!, new Progress<double>(), CancellationToken.None);
+                    Check(File.Exists(package.Path), "live release installer downloaded and checksum verified without execution");
+                }
+            }
             await CheckLayoutAsync();
             await CheckBrowserAsync();
             await CheckTabsAsync();
@@ -164,17 +177,26 @@ internal sealed class CheckApplication : System.Windows.Application
         var existing = AppStorageService.ResolveFolders(executable, false, roaming, local);
         Check(existing.Data == dataTarget && File.ReadAllText(Path.Combine(dataTarget, "settings.json")).Contains("Brave"), "existing destination settings are never overwritten");
         Check(File.ReadAllText(Path.Combine(legacyData, "settings.json")) == "Older conflicting settings", "conflicting legacy folder is left intact");
+        AppStorageService.MarkMigrationComplete(existing);
+        Check(File.Exists(existing.CompletionMarker), "successful layout adoption records one-time migration marker");
+        File.Delete(Path.Combine(dataTarget, "settings.json"));
+        var completed = AppStorageService.ResolveFolders(executable, false, roaming, local);
+        Check(completed.Data == dataTarget && !File.Exists(Path.Combine(dataTarget, "settings.json")), "completed migration never reimports obsolete legacy settings");
+        Check(completed.Notes.Count == 0, "completed migration skips legacy layout entirely");
 
         var blockedRoaming = Path.Combine(root, "BlockedRoaming");
+        var blockedLocal = Path.Combine(root, "BlockedLocal");
         var blockedLegacy = Path.Combine(blockedRoaming, "ELKA.EventLens");
         var blockedTarget = Path.Combine(blockedRoaming, "ElkaSoft", "ELKA EventLens", "Saves");
         Seed(Path.Combine(blockedLegacy, "settings.json"), "Recoverable settings");
         Seed(blockedTarget, "A conflicting file prevents the directory move");
-        var blocked = AppStorageService.ResolveFolders(executable, false, blockedRoaming, local);
+        var blocked = AppStorageService.ResolveFolders(executable, false, blockedRoaming, blockedLocal);
         Check(blocked.Data == blockedLegacy && blocked.Notes.Any(note => note.Contains("deferred")), "failed migration keeps using original folder");
+        AppStorageService.MarkMigrationComplete(blocked);
+        Check(!File.Exists(Path.Combine(blockedLocal, "ElkaSoft", "ELKA EventLens", "storage-layout-v1.complete")) && blocked.CompletionMarker is null, "blocked migration cannot mark itself complete");
         Check(File.ReadAllText(blockedTarget).StartsWith("A conflicting file") && File.ReadAllText(Path.Combine(blockedLegacy, "settings.json")) == "Recoverable settings", "failed migration preserves both source and conflicting file");
         File.Delete(blockedTarget);
-        var retry = AppStorageService.ResolveFolders(executable, false, blockedRoaming, local);
+        var retry = AppStorageService.ResolveFolders(executable, false, blockedRoaming, blockedLocal);
         Check(retry.Data == blockedTarget && File.ReadAllText(Path.Combine(retry.Data, "settings.json")) == "Recoverable settings", "migration retries successfully after obstruction is removed");
     }
 
@@ -215,11 +237,21 @@ internal sealed class CheckApplication : System.Windows.Application
         Check(Math.Abs(raw.ActualWidth - 500) < 1, "XML width recovers after resizing");
         window.Close();
 
-        var settings = new SettingsWindow { DataContext = new SettingsViewModel(new AppSettings()) };
+        var settingsModel = new SettingsViewModel(new AppSettings(), updateService: UpdateChecks.UiService());
+        var settings = new SettingsWindow { DataContext = settingsModel };
         settings.Show();
         await Task.Delay(100);
         Snapshot(settings, "settings.png");
         Check(Descendants<ScrollViewer>(settings).Any(x => x.ScrollableHeight > 0), "settings content scrolls");
+        Check(Descendants<Button>(settings).Any(button => Equals(button.Content, "Check for updates") && button.IsVisible), "Settings exposes update check button");
+        await settingsModel.Updates.CheckAsync();
+        settings.Width = 460;
+        await Task.Delay(100);
+        var downloadButton = Descendants<Button>(settings).Single(button => Equals(button.Content, "Download and install"));
+        Check(downloadButton.IsVisible && downloadButton.IsEnabled, "Settings exposes install action only for available update");
+        var downloadPosition = downloadButton.TransformToAncestor(settings).Transform(new Point(0, 0));
+        Check(downloadPosition.X + downloadButton.ActualWidth < settings.ActualWidth, "update controls fit minimum Settings width");
+        Snapshot(settings, "settings-update-ready.png");
         var appearance = new AppearanceWindow { DataContext = new AppearanceViewModel(new()), Owner = settings };
         appearance.Show();
         await Task.Delay(100);

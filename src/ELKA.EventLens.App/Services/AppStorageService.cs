@@ -31,6 +31,9 @@ public static class AppStorageService
     public static string WebViewProfileFolder => Folders.Value.Browser;
     public static string LogFolder => Folders.Value.Logs;
     public static IReadOnlyList<string> MigrationNotes => Folders.Value.Notes;
+    public static string UpdateFolder => IsPortable
+        ? Path.Combine(AppBaseDirectory, "Updates")
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), CompanyFolderName, AppFolderName, "Updates");
 
     internal static StorageFolders ResolveFolders(string appBaseDirectory, bool isPortable,
         string roamingAppData, string localAppData, bool canMigrate = true)
@@ -46,11 +49,17 @@ public static class AppStorageService
         var roamingRoot = Path.Combine(roamingAppData, CompanyFolderName, AppFolderName);
         var localRoot = Path.Combine(localAppData, CompanyFolderName, AppFolderName);
         var legacyLocalRoot = Path.Combine(localAppData, "ELKA", "EventLens");
-        return new(
+        var marker = Path.Combine(localRoot, "storage-layout-v1.complete");
+        var current = new StorageFolders(Path.Combine(roamingRoot, "Saves"), Path.Combine(localRoot, "WebView2Profile"), Path.Combine(localRoot, "Logs"), notes, marker);
+        if (File.Exists(marker)) return current;
+
+        var resolved = new StorageFolders(
             MigrateFolder(Path.Combine(roamingAppData, "ELKA.EventLens"), Path.Combine(roamingRoot, "Saves"), canMigrate, notes),
             MigrateFolder(Path.Combine(legacyLocalRoot, "WebView2Profile"), Path.Combine(localRoot, "WebView2Profile"), canMigrate, notes),
             MigrateFolder(Path.Combine(legacyLocalRoot, "Logs"), Path.Combine(localRoot, "Logs"), canMigrate, notes),
             notes);
+        return canMigrate && resolved.Data == current.Data && resolved.Browser == current.Browser && resolved.Logs == current.Logs
+            ? resolved with { CompletionMarker = marker } : resolved;
     }
 
     private static string MigrateFolder(string previous, string destination, bool canMigrate, List<string> notes)
@@ -120,6 +129,22 @@ public static class AppStorageService
         Directory.CreateDirectory(DataFolder);
         Directory.CreateDirectory(WebViewProfileFolder);
         Directory.CreateDirectory(LogFolder);
+        MarkMigrationComplete(Folders.Value);
+    }
+
+    internal static void MarkMigrationComplete(StorageFolders folders)
+    {
+        if (folders.CompletionMarker is not { } marker || File.Exists(marker)) return;
+        if (!Directory.Exists(folders.Data) || !Directory.Exists(folders.Browser) || !Directory.Exists(folders.Logs)) return;
+        try
+        {
+            using var stream = new FileStream(marker, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+            folders.Notes.Add("Storage migration complete. Only the ElkaSoft layout will be used from now on.");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            folders.Notes.Add($"Could not record storage migration completion: {error.Message}");
+        }
     }
 
     private static bool DetectPortableMode()
@@ -137,4 +162,4 @@ public static class AppStorageService
     }
 }
 
-internal sealed record StorageFolders(string Data, string Browser, string Logs, IReadOnlyList<string> Notes);
+internal sealed record StorageFolders(string Data, string Browser, string Logs, List<string> Notes, string? CompletionMarker = null);

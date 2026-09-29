@@ -7,7 +7,7 @@
   #define AppVersion "0.1.0"
 #endif
 #ifndef ReleaseVersion
-  #define ReleaseVersion "0.1.0-dev.2"
+  #define ReleaseVersion "0.1.0-dev.3"
 #endif
 #ifndef SourcePublishDir
   #error SourcePublishDir must point to a clean installed-mode publish folder.
@@ -80,7 +80,8 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingD
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch ELKA EventLens"; Flags: nowait postinstall skipifsilent runasoriginaluser; Tasks: runafter
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch ELKA EventLens"; Flags: nowait postinstall skipifsilent runasoriginaluser; Tasks: runafter; Check: not IsAutoUpdate
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait runasoriginaluser; Check: IsAutoUpdate
 
 [UninstallDelete]
 Type: dirifempty; Name: "{app}"
@@ -89,6 +90,45 @@ Type: dirifempty; Name: "{app}"
 var
   WelcomeLogo: TBitmapImage;
   FinishedLogo: TBitmapImage;
+
+function OpenProcess(DesiredAccess: LongWord; InheritHandle: Boolean; ProcessId: LongWord): THandle;
+  external 'OpenProcess@kernel32.dll stdcall';
+function WaitForSingleObject(Handle: THandle; Milliseconds: LongWord): LongWord;
+  external 'WaitForSingleObject@kernel32.dll stdcall';
+function CloseHandle(Handle: THandle): Boolean;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+function IsAutoUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:AUTOUPDATE|0}') = '1';
+end;
+
+function WaitForEventLensExit: Boolean;
+var
+  ProcessId: Integer;
+  ProcessHandle: THandle;
+begin
+  Result := True;
+  if not IsAutoUpdate then Exit;
+  ProcessId := StrToIntDef(ExpandConstant('{param:ELKAPID|0}'), 0);
+  if ProcessId <= 0 then
+  begin
+    Result := False;
+    Exit;
+  end;
+  ProcessHandle := OpenProcess($00100000, False, ProcessId);
+  if ProcessHandle = 0 then
+  begin
+    { ERROR_INVALID_PARAMETER means the launching process has already exited. }
+    Result := DLLGetLastError = 87;
+    Exit;
+  end;
+  try
+    Result := WaitForSingleObject(ProcessHandle, 30000) = 0;
+  finally
+    CloseHandle(ProcessHandle);
+  end;
+end;
 
 function HasWebView2Runtime: Boolean;
 var
@@ -105,6 +145,11 @@ var
   ExitCode: Integer;
 begin
   Result := '';
+  if not WaitForEventLensExit then
+  begin
+    Result := 'EventLens has not exited yet. Close EventLens from its tray menu before retrying the update.';
+    Exit;
+  end;
   if HasWebView2Runtime then
     Exit;
   WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';

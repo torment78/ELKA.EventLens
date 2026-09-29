@@ -1,6 +1,6 @@
 param(
     [ValidatePattern('^\d+\.\d+\.\d+-dev\.\d+$')]
-    [string]$Version = '0.1.0-dev.2',
+    [string]$Version = '0.1.0-dev.3',
     [ValidateSet('Release', 'Debug')][string]$Configuration = 'Release'
 )
 

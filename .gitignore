@@ -11,6 +11,7 @@ artifacts/
 Saves/
 Logs/
 WebView2Profile/
+Updates/
 .env
 .env.*
 !.env.example

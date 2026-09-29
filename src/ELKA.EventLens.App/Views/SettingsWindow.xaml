@@ -31,6 +31,32 @@
                     <Button Content="Appearance..." Click="Appearance_Click"
                             Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,0,0,18" />
 
+                    <StackPanel DataContext="{Binding Updates}" Margin="0,0,0,18">
+                        <TextBlock Text="Updates" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <TextBlock Text="{Binding VersionLabel}" Foreground="{DynamicResource MutedTextBrush}" Margin="0,0,0,8" />
+                        <WrapPanel>
+                            <Button Content="Check for updates" Command="{Binding CheckCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button Content="{Binding DownloadLabel}" Command="{Binding DownloadCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}">
+                                <Button.Visibility>
+                                    <Binding Path="HasUpdate"><Binding.Converter><BooleanToVisibilityConverter /></Binding.Converter></Binding>
+                                </Button.Visibility>
+                            </Button>
+                        </WrapPanel>
+                        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,0,8" />
+                        <DockPanel>
+                            <DockPanel.Visibility>
+                                <Binding Path="IsBusy"><Binding.Converter><BooleanToVisibilityConverter /></Binding.Converter></Binding>
+                            </DockPanel.Visibility>
+                            <Button Content="Cancel update" Command="{Binding CancelCommand}" DockPanel.Dock="Right"
+                                    Style="{StaticResource QuietButtonStyle}" Margin="10,0,0,0" />
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress, Mode=OneWay}" IsIndeterminate="{Binding IsChecking}"
+                                         Height="6" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"
+                                         Background="{DynamicResource InputBrush}" BorderThickness="0" />
+                        </DockPanel>
+                    </StackPanel>
+
                     <TextBlock Text="Notifications"
                                FontWeight="SemiBold"
                                Margin="0,0,0,8" />

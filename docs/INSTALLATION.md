@@ -31,6 +31,8 @@ The migration moves each entire directory, preserving files without copying a pa
 
 Moving browser storage follows [Microsoft's WebView2 user-data-folder guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/user-data-folder). Close old EventLens/browser sessions before upgrading. Website sessions may still expire or require a new login.
 
+Starting with `0.1.0-dev.3`, successful migration writes `%LocalAppData%\ElkaSoft\ELKA EventLens\storage-layout-v1.complete`. Subsequent launches use only the ElkaSoft paths, even if an old copy recreates its legacy folder. A blocked migration does not write this marker. Old and new folders are never merged over each other; any conflicting old copy is left untouched as recovery data, but is not used after completion. Builds that already migrated with `dev.2` adopt the same marker without moving the data again.
+
 ## Portable Applications
 
 Portable storage remains unchanged and never migrates installed data:

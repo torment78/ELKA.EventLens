@@ -4,16 +4,24 @@
 
 ELKA EventLens is a Windows-only WPF helper for reading Windows Event Viewer errors and warnings in a cleaner card-based UI.
 
-> **Development preview: 0.1.0-dev.2.** Under active development, not a stable release. Intended for testing. Event explanations are troubleshooting suggestions, not confirmed diagnoses.
+> **Development preview: 0.1.0-dev.3.** Under active development, not a stable release. Intended for testing. Event explanations are troubleshooting suggestions, not confirmed diagnoses.
 
 ## Downloads
 
-Get the installer or portable ZIP from the [development preview release](https://github.com/torment78/ELKA.EventLens/releases/tag/v0.1.0-dev.2).
+Get the installer or portable ZIP from the [development preview release](https://github.com/torment78/ELKA.EventLens/releases/tag/v0.1.0-dev.3).
 
 - **Installer:** a dark ELKA-branded setup wizard, with optional desktop shortcut. New installs default to `Program Files\ElkaSoft\ELKA EventLens`. Existing installs retain their selected directory unless changed on the setup directory page.
 - **Portable ZIP:** extract the whole `ElkaEventLensPort` folder to a writable location, then run `ELKA.EventLens.App.exe`. Keep its supporting files together.
 - Both packages target Windows 10/11 x64 and include .NET. Embedded browsing requires Microsoft Edge WebView2. Setup installs it if missing, requiring internet access; portable users need the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) installed separately.
 - Preview binaries are not code-signed. SHA-256 checksums accompany each release.
+
+## Updating
+
+Install this version once to gain **Settings > Check for updates**. The updater checks this public GitHub repository, including development previews, and offers **Download and install** when a newer version exists. After checksum verification and your confirmation, Windows starts Setup, EventLens saves and exits, Setup waits for that exit, then installs and reopens the app. Downloads, network failures, and cancelled elevation do not force the app to close. No automatic Windows reboot is requested.
+
+Portable copies offer **Download portable ZIP** instead. The ZIP is saved beside the portable app under `Updates` and revealed in Explorer. Exit the app before extracting it; keep the existing `Saves`, `Logs`, and `WebView2Profile` folders. A portable update never runs the system installer.
+
+See [updater behavior and validation](docs/UPDATES.md). Older previews without the update button need one manual installation of this release.
 
 ## v1 scope
 
@@ -72,7 +80,7 @@ The integrated search pane uses Microsoft Edge WebView2. Current Windows 10/11 i
 On Windows with .NET 8 SDK and Inno Setup 6.6 or newer installed in its default location:
 
 ```powershell
-./scripts/Build-Release.ps1 -Version 0.1.0-dev.2
+./scripts/Build-Release.ps1 -Version 0.1.0-dev.3
 ```
 
 Outputs are written to `artifacts/installer`: the setup EXE, portable ZIP, and SHA-256 checksums. The build downloads Microsoft's WebView2 bootstrapper and verifies its Microsoft Authenticode signature before bundling it. Only a fresh publish directory is packaged; local settings, history, browser profiles, and logs are excluded.
@@ -83,7 +91,7 @@ Run `./scripts/Prepare-Branding.ps1` to regenerate the small web images and inst
 
 Normal installations keep settings and event history in `%AppData%\ElkaSoft\ELKA EventLens\Saves`, with logs and the browser profile under `%LocalAppData%\ElkaSoft\ELKA EventLens`. Uninstalling preserves these user data folders.
 
-Existing data is migrated before settings or browsers are opened. The migration never overwrites an existing destination; if blocked, it keeps using the old location for that launch. Exit old EventLens copies before upgrading. See the [installation and storage convention](docs/INSTALLATION.md), which is also the default for future ELKA apps. Portable storage does not change.
+Existing data is migrated before settings or browsers are opened. The migration never overwrites an existing destination; if blocked, it keeps using the old location for that launch. After success, a completion marker makes the new layout authoritative and legacy folders are no longer consulted. Exit old EventLens copies before upgrading. See the [installation and storage convention](docs/INSTALLATION.md), which is also the default for future ELKA apps. Portable storage does not change.
 
 Portable mode is detected when the app base folder is named `ElkaEventLensPort` or contains `ELKA.EventLens.portable`.
 

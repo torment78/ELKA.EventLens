@@ -66,6 +66,11 @@ public partial class App : System.Windows.Application
 
     private void NotificationService_ExitRequested(object? sender, EventArgs e)
     {
+        ShutdownForUpdate();
+    }
+
+    public void ShutdownForUpdate()
+    {
         Dispatcher.Invoke(() =>
         {
             if (MainWindow is MainWindow mainWindow)

@@ -29,10 +29,12 @@ public sealed class SettingsViewModel : ViewModelBase
     public SettingsViewModel(
         AppSettings settings,
         Action? testNotification = null,
-        Action<string, bool>? openAiLogin = null)
+        Action<string, bool>? openAiLogin = null,
+        IAppUpdateService? updateService = null)
     {
         _testNotification = testNotification;
         _openAiLogin = openAiLogin;
+        Updates = new UpdateViewModel(updateService ?? new AppUpdateService());
         _enableNotifications = settings.EnableNotifications;
         _startMinimized = settings.StartMinimized;
         _monitorApplication = settings.MonitorApplication;
@@ -61,6 +63,7 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     public IReadOnlyList<string> AiProviderOptions => SearchUrlService.AiProviders;
+    public UpdateViewModel Updates { get; }
     public IReadOnlyList<string> SearchEngineOptions => SearchUrlService.SearchEngines;
     public IReadOnlyList<string> PromptFields { get; } = ["{LogName}", "{Provider}", "{EventId}", "{Level}", "{Severity}", "{Machine}", "{Time}", "{Message}"];
     public ICommand ResetAiPromptCommand { get; }

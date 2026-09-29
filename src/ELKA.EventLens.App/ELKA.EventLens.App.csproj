@@ -10,7 +10,7 @@
     <AssemblyName>ELKA.EventLens.App</AssemblyName>
     <RootNamespace>ELKA.EventLens.App</RootNamespace>
     <ApplicationIcon>Assets\EventLens-v1.ico</ApplicationIcon>
-    <Version>0.1.0-dev.2</Version>
+    <Version>0.1.0-dev.3</Version>
     <Company>ElkaSoft</Company>
     <Product>ELKA EventLens</Product>
     <Description>Development preview of the ELKA EventLens Windows Event Log helper.</Description>

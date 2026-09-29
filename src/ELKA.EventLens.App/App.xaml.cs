@@ -16,6 +16,10 @@ public partial class App : System.Windows.Application
 
         AppStorageService.EnsureStorageFolders();
         _activityLogService = new ActivityLogService();
+        foreach (var note in AppStorageService.MigrationNotes)
+        {
+            _activityLogService.Write(note);
+        }
         _activityLogService.Write($"App started. Storage mode: {(AppStorageService.IsPortable ? "Portable" : "Installed")}. Base: {AppStorageService.AppBaseDirectory}");
 
         var settingsService = new SettingsService();

@@ -1,13 +1,13 @@
 #define MyAppName "ELKA EventLens"
 #define MyAppPublisher "ElkaSoft"
 #define MyAppExeName "ELKA.EventLens.App.exe"
-#define MyCompanyFolderName "Elka Software"
+#define MyCompanyFolderName "ElkaSoft"
 
 #ifndef AppVersion
   #define AppVersion "0.1.0"
 #endif
 #ifndef ReleaseVersion
-  #define ReleaseVersion "0.1.0-dev.1"
+  #define ReleaseVersion "0.1.0-dev.2"
 #endif
 #ifndef SourcePublishDir
   #error SourcePublishDir must point to a clean installed-mode publish folder.

@@ -1,4 +1,7 @@
 using System.Windows;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("ELKA.EventLens.Checks")]
 
 [assembly:ThemeInfo(
     ResourceDictionaryLocation.None,            //where theme specific resource dictionaries are located

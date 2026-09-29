@@ -49,6 +49,7 @@ internal sealed class CheckApplication : System.Windows.Application
             ThemeService.Apply(new());
             WindowThemeService.Initialize();
             CheckLogic();
+            CheckStorage();
             await CheckLayoutAsync();
             await CheckBrowserAsync();
             await CheckTabsAsync();
@@ -112,6 +113,69 @@ internal sealed class CheckApplication : System.Windows.Application
         ThemeService.Apply(new() { ErrorHueShift = 100 });
         Check(ReferenceEquals(accent, ThemeService.SeverityBrush(EventSeverity.Error)) && accent.Color != (Color)ColorConverter.ConvertFromString("#FB7185"), "existing severity brush updates live");
         ThemeService.Apply(new());
+    }
+
+    private void CheckStorage()
+    {
+        var root = Path.Combine(_output, "storage-" + Guid.NewGuid().ToString("N"));
+        var roaming = Path.Combine(root, "Roaming");
+        var local = Path.Combine(root, "Local");
+        var executable = Path.Combine(root, "App");
+        var dataTarget = Path.Combine(roaming, "ElkaSoft", "ELKA EventLens", "Saves");
+        var localTarget = Path.Combine(local, "ElkaSoft", "ELKA EventLens");
+
+        static void Seed(string file, string contents)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            File.WriteAllText(file, contents);
+        }
+
+        var fresh = AppStorageService.ResolveFolders(executable, false, roaming, local);
+        Check(fresh.Data == dataTarget, "installed saves use ElkaSoft/app/Saves");
+        Check(fresh.Browser == Path.Combine(localTarget, "WebView2Profile") && fresh.Logs == Path.Combine(localTarget, "Logs"), "installed local data uses ElkaSoft/app");
+        Check(fresh.Notes.Count == 0 && !Directory.Exists(roaming), "fresh paths do not create legacy data");
+
+        var legacyData = Path.Combine(roaming, "ELKA.EventLens");
+        var legacyLocal = Path.Combine(local, "ELKA", "EventLens");
+        Seed(Path.Combine(legacyData, "settings.json"), "{\"SearchEngine\":\"Brave\"}");
+        Seed(Path.Combine(legacyData, "events.json"), "[]");
+        Seed(Path.Combine(legacyLocal, "WebView2Profile", "Default", "Network", "Cookies"), "Synthetic session fixture");
+        Seed(Path.Combine(legacyLocal, "Logs", "ELKA.EventLens-test.log"), "Existing activity");
+        var savedTime = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(Path.Combine(legacyLocal, "Logs", "ELKA.EventLens-test.log"), savedTime);
+
+        var portable = AppStorageService.ResolveFolders(executable, true, roaming, local);
+        Check(portable.Data == Path.Combine(executable, "Saves") && portable.Browser == Path.Combine(executable, "WebView2Profile") && portable.Logs == Path.Combine(executable, "Logs"), "portable data stays beside EXE");
+        Check(Directory.Exists(legacyData) && !Directory.Exists(dataTarget) && portable.Notes.Count == 0, "portable mode never migrates installed data");
+
+        var deferred = AppStorageService.ResolveFolders(executable, false, roaming, local, canMigrate: false);
+        Check(deferred.Data == legacyData && deferred.Browser == Path.Combine(legacyLocal, "WebView2Profile") && deferred.Notes.Count == 3, "another running copy defers migration without losing old paths");
+        Check(!Directory.Exists(dataTarget), "deferred migration does not leave empty destination");
+
+        var moved = AppStorageService.ResolveFolders(executable, false, roaming, local);
+        Check(moved.Data == dataTarget && JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path.Combine(moved.Data, "settings.json")))!.SearchEngine == "Brave", "existing settings migrate intact");
+        Check(File.ReadAllText(Path.Combine(moved.Data, "events.json")) == "[]", "existing history migrates intact");
+        Check(File.ReadAllText(Path.Combine(moved.Browser, "Default", "Network", "Cookies")) == "Synthetic session fixture", "nested browser profile migrates intact");
+        Check(File.ReadAllText(Path.Combine(moved.Logs, "ELKA.EventLens-test.log")) == "Existing activity" && File.GetLastWriteTimeUtc(Path.Combine(moved.Logs, "ELKA.EventLens-test.log")) == savedTime, "activity logs and timestamps survive migration");
+        Check(!Directory.Exists(legacyData) && !Directory.Exists(Path.Combine(legacyLocal, "WebView2Profile")) && moved.Notes.Count == 3, "migration moves whole folders and records changes");
+        Check(AppStorageService.ResolveFolders(executable, false, roaming, local).Notes.Count == 0, "migration is idempotent");
+
+        Seed(Path.Combine(legacyData, "settings.json"), "Older conflicting settings");
+        var existing = AppStorageService.ResolveFolders(executable, false, roaming, local);
+        Check(existing.Data == dataTarget && File.ReadAllText(Path.Combine(dataTarget, "settings.json")).Contains("Brave"), "existing destination settings are never overwritten");
+        Check(File.ReadAllText(Path.Combine(legacyData, "settings.json")) == "Older conflicting settings", "conflicting legacy folder is left intact");
+
+        var blockedRoaming = Path.Combine(root, "BlockedRoaming");
+        var blockedLegacy = Path.Combine(blockedRoaming, "ELKA.EventLens");
+        var blockedTarget = Path.Combine(blockedRoaming, "ElkaSoft", "ELKA EventLens", "Saves");
+        Seed(Path.Combine(blockedLegacy, "settings.json"), "Recoverable settings");
+        Seed(blockedTarget, "A conflicting file prevents the directory move");
+        var blocked = AppStorageService.ResolveFolders(executable, false, blockedRoaming, local);
+        Check(blocked.Data == blockedLegacy && blocked.Notes.Any(note => note.Contains("deferred")), "failed migration keeps using original folder");
+        Check(File.ReadAllText(blockedTarget).StartsWith("A conflicting file") && File.ReadAllText(Path.Combine(blockedLegacy, "settings.json")) == "Recoverable settings", "failed migration preserves both source and conflicting file");
+        File.Delete(blockedTarget);
+        var retry = AppStorageService.ResolveFolders(executable, false, blockedRoaming, local);
+        Check(retry.Data == blockedTarget && File.ReadAllText(Path.Combine(retry.Data, "settings.json")) == "Recoverable settings", "migration retries successfully after obstruction is removed");
     }
 
     private async Task CheckLayoutAsync()

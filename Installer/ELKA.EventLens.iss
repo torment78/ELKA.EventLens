@@ -7,7 +7,7 @@
   #define AppVersion "0.1.0"
 #endif
 #ifndef ReleaseVersion
-  #define ReleaseVersion "0.1.0-dev.3"
+  #define ReleaseVersion "0.1.0-dev.4"
 #endif
 #ifndef SourcePublishDir
   #error SourcePublishDir must point to a clean installed-mode publish folder.
@@ -90,6 +90,8 @@ Type: dirifempty; Name: "{app}"
 var
   WelcomeLogo: TBitmapImage;
   FinishedLogo: TBitmapImage;
+  LegacyUninstaller: String;
+  LegacyRetired: Boolean;
 
 function OpenProcess(DesiredAccess: LongWord; InheritHandle: Boolean; ProcessId: LongWord): THandle;
   external 'OpenProcess@kernel32.dll stdcall';
@@ -97,6 +99,101 @@ function WaitForSingleObject(Handle: THandle; Milliseconds: LongWord): LongWord;
   external 'WaitForSingleObject@kernel32.dll stdcall';
 function CloseHandle(Handle: THandle): Boolean;
   external 'CloseHandle@kernel32.dll stdcall';
+function GetFileAttributes(FileName: String): LongWord;
+  external 'GetFileAttributesW@kernel32.dll stdcall';
+function CreateFile(FileName: String; DesiredAccess, ShareMode, SecurityAttributes,
+  CreationDisposition, FlagsAndAttributes: LongWord; TemplateFile: THandle): THandle;
+  external 'CreateFileW@kernel32.dll stdcall';
+
+function LegacyInstallDir: String;
+begin
+  Result := ExpandConstant('{autopf}\Elka Software\{#MyAppName}');
+end;
+
+function SameDirectory(LeftPath, RightPath: String): Boolean;
+begin
+  Result := CompareText(RemoveBackslashUnlessRoot(ExpandFileName(LeftPath)),
+    RemoveBackslashUnlessRoot(ExpandFileName(RightPath))) = 0;
+end;
+
+function IsPlainPath(Path: String): Boolean;
+var
+  Parent: String;
+  Attributes: LongWord;
+begin
+  Result := False;
+  Path := RemoveBackslashUnlessRoot(ExpandFileName(Path));
+  while Path <> '' do
+  begin
+    Attributes := GetFileAttributes(Path);
+    if (Attributes <> $FFFFFFFF) and ((Attributes and $400) <> 0) then Exit;
+    Parent := ExtractFileDir(Path);
+    if Parent = Path then Break;
+    Path := Parent;
+  end;
+  Result := True;
+end;
+
+procedure SelectCurrentCompanyFolder;
+var
+  PreviousDir, UninstallCommand, Expected: String;
+  Key: String;
+begin
+  { UsePreviousAppDir and older updaters' /DIR both selected the obsolete path. }
+  if SameDirectory(WizardDirValue, LegacyInstallDir) then
+    WizardForm.DirEdit.Text := ExpandConstant('{autopf}\{#MyCompanyFolderName}\{#MyAppName}');
+
+  Key := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{B536C27A-C350-4B80-9C78-E3AC1AEE58DA}_is1';
+  Expected := AddBackslash(LegacyInstallDir) + 'unins000.exe';
+  if RegQueryStringValue(HKA, Key, 'InstallLocation', PreviousDir) and
+     SameDirectory(PreviousDir, LegacyInstallDir) and
+     RegQueryStringValue(HKA, Key, 'UninstallString', UninstallCommand) and
+     ((CompareText(UninstallCommand, Expected) = 0) or (CompareText(UninstallCommand, '"' + Expected + '"') = 0)) and
+     FileExists(Expected) and IsPlainPath(Expected) then
+    LegacyUninstaller := Expected;
+end;
+
+function RetireLegacyInstallation: String;
+var
+  ExitCode: Integer;
+  FileHandle: THandle;
+  OldExecutable: String;
+begin
+  Result := '';
+  if LegacyRetired or (LegacyUninstaller = '') or SameDirectory(WizardDirValue, LegacyInstallDir) then Exit;
+  if not IsPlainPath(LegacyUninstaller) then
+  begin
+    Result := 'The old installation contains a linked path. It was left untouched. Uninstall that copy manually before continuing.';
+    Exit;
+  end;
+  { PrepareToInstall precedes Inno's normal close-applications check. }
+  OldExecutable := AddBackslash(LegacyInstallDir) + '{#MyAppExeName}';
+  if FileExists(OldExecutable) then
+  begin
+    FileHandle := CreateFile(OldExecutable, $40000000, 7, 0, 3, 0, 0);
+    if FileHandle = THandle(-1) then
+    begin
+      Result := 'Close the old EventLens from its tray menu before retrying Setup. Its program file is in use or cannot be accessed.';
+      Exit;
+    end;
+    CloseHandle(FileHandle);
+  end;
+  { Use its own uninstaller, never recursively delete Program Files or the company folder. }
+  if not Exec(LegacyUninstaller, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+  begin
+    Result := 'The previous EventLens version could not be uninstalled. Close it from the tray menu and retry.';
+    Exit;
+  end;
+  if (ExitCode <> 0) or FileExists(AddBackslash(LegacyInstallDir) + '{#MyAppExeName}') then
+  begin
+    Result := 'The previous EventLens files are still in use. Close EventLens from its tray menu and retry Setup.';
+    Exit;
+  end;
+  LegacyRetired := True;
+  RemoveDir(LegacyInstallDir);
+  RemoveDir(ExtractFileDir(LegacyInstallDir));
+  Log('Retired the registered legacy EventLens installation; AppData and unrelated files were preserved.');
+end;
 
 function IsAutoUpdate: Boolean;
 begin
@@ -151,7 +248,10 @@ begin
     Exit;
   end;
   if HasWebView2Runtime then
+  begin
+    Result := RetireLegacyInstallation;
     Exit;
+  end;
   WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
   ExtractTemporaryFile('MicrosoftEdgeWebview2Setup.exe');
   if not Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
@@ -162,7 +262,9 @@ begin
   if ExitCode = 3010 then
     NeedsRestart := True;
   if not HasWebView2Runtime then
-    Result := 'Microsoft WebView2 could not be installed (code ' + IntToStr(ExitCode) + '). Check your internet connection, or install the Evergreen WebView2 Runtime from Microsoft, then retry Setup.';
+    Result := 'Microsoft WebView2 could not be installed (code ' + IntToStr(ExitCode) + '). Check your internet connection, or install the Evergreen WebView2 Runtime from Microsoft, then retry Setup.'
+  else
+    Result := RetireLegacyInstallation;
 end;
 
 procedure AddBrandLogo(var Logo: TBitmapImage; ParentPage: TNewNotebookPage; LeftEdge: Integer);
@@ -176,6 +278,7 @@ end;
 
 procedure InitializeWizard;
 begin
+  SelectCurrentCompanyFolder;
   ExtractTemporaryFile('ElkaSoft.png');
   WizardForm.WelcomeLabel1.Caption := 'ELKA EventLens' + #13#10 + 'Development Preview';
   WizardForm.WelcomeLabel1.Height := ScaleY(62);

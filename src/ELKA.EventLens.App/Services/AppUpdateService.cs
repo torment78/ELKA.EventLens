@@ -188,8 +188,17 @@ public sealed class AppUpdateService : IAppUpdateService
     internal static ProcessStartInfo InstallerStartInfo(string file, string appFolder, int processId) => new(file)
     {
         UseShellExecute = true,
-        Arguments = $"/SP- /SILENT /NORESTART /CLOSEAPPLICATIONS /NOFORCECLOSEAPPLICATIONS /AUTOUPDATE=1 /ELKAPID={processId} /DIR=\"{appFolder.TrimEnd(Path.DirectorySeparatorChar)}\""
+        Arguments = $"/SP- /SILENT /NORESTART /CLOSEAPPLICATIONS /NOFORCECLOSEAPPLICATIONS /AUTOUPDATE=1 /ELKAPID={processId} /DIR=\"{UpgradeInstallFolder(appFolder, Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles))}\""
     };
+
+    internal static string UpgradeInstallFolder(string appFolder, string programFiles)
+    {
+        var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(appFolder));
+        var legacy = Path.Combine(programFiles, "Elka Software", AppStorageService.AppFolderName);
+        return current.Equals(legacy, StringComparison.OrdinalIgnoreCase)
+            ? Path.Combine(programFiles, AppStorageService.CompanyFolderName, AppStorageService.AppFolderName)
+            : current;
+    }
 
     public static async Task StartInstallerAsync(DownloadedUpdate download, CancellationToken cancellationToken = default)
     {

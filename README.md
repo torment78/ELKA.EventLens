@@ -4,11 +4,11 @@
 
 ELKA EventLens is a Windows-only WPF helper for reading Windows Event Viewer errors and warnings in a cleaner card-based UI.
 
-> **Development preview: 0.1.0-dev.3.** Under active development, not a stable release. Intended for testing. Event explanations are troubleshooting suggestions, not confirmed diagnoses.
+> **Development preview: 0.1.0-dev.4.** Under active development, not a stable release. Intended for testing. Event explanations are troubleshooting suggestions, not confirmed diagnoses.
 
 ## Downloads
 
-Get the installer or portable ZIP from the [development preview release](https://github.com/torment78/ELKA.EventLens/releases/tag/v0.1.0-dev.3).
+Get the installer or portable ZIP from the [development preview release](https://github.com/torment78/ELKA.EventLens/releases/tag/v0.1.0-dev.4).
 
 - **Installer:** a dark ELKA-branded setup wizard, with optional desktop shortcut. New installs default to `Program Files\ElkaSoft\ELKA EventLens`. Existing installs retain their selected directory unless changed on the setup directory page.
 - **Portable ZIP:** extract the whole `ElkaEventLensPort` folder to a writable location, then run `ELKA.EventLens.App.exe`. Keep its supporting files together.
@@ -80,7 +80,7 @@ The integrated search pane uses Microsoft Edge WebView2. Current Windows 10/11 i
 On Windows with .NET 8 SDK and Inno Setup 6.6 or newer installed in its default location:
 
 ```powershell
-./scripts/Build-Release.ps1 -Version 0.1.0-dev.3
+./scripts/Build-Release.ps1 -Version 0.1.0-dev.4
 ```
 
 Outputs are written to `artifacts/installer`: the setup EXE, portable ZIP, and SHA-256 checksums. The build downloads Microsoft's WebView2 bootstrapper and verifies its Microsoft Authenticode signature before bundling it. Only a fresh publish directory is packaged; local settings, history, browser profiles, and logs are excluded.

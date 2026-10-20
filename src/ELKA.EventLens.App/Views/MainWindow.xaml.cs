@@ -86,6 +86,8 @@ public partial class MainWindow : Window
         }
 
         await viewModel.InitializeAsync();
+        if (System.Windows.Application.Current is App app)
+            await app.CleanupLegacyStorageAsync();
     }
 
     private void MainViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)

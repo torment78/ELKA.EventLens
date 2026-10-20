@@ -78,6 +78,8 @@ public static class AppStorageService
 
         try
         {
+            LegacyStorageCleanup.RequirePlainTree(previous);
+            LegacyStorageCleanup.RequirePlainPath(destination);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             Directory.Move(previous, destination);
             notes.Add($"Storage moved from {previous} to {destination}.");
@@ -109,6 +111,11 @@ public static class AppStorageService
             return false;
         }
     }
+
+    internal static IReadOnlyList<string> CleanupAfterSuccessfulLaunch() => LegacyStorageCleanup.Run(
+        Folders.Value, IsPortable,
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), CanMigrateLegacyFolders());
 
     /* Previous path properties:
     public static string DataFolder => IsPortable

@@ -50,6 +50,7 @@ internal sealed class CheckApplication : System.Windows.Application
             WindowThemeService.Initialize();
             CheckLogic();
             CheckStorage();
+            LegacyCleanupChecks.Run(Check, _output);
             await UpdateChecks.RunAsync(Check, _output);
             if (e.Args.Contains("--live-update-check"))
             {

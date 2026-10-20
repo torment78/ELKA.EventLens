@@ -7,7 +7,7 @@
 3. The package is downloaded from this repository and checked against its SHA-256 checksum. Confirm installation when prompted.
 4. Windows launches Setup, requesting elevation if needed. Only a successful launch lets EventLens close. Cancelling the elevation prompt keeps the app running.
 5. Pending Settings changes and event history are saved, browsers are disposed, and the app exits instead of hiding in the tray.
-6. Setup waits up to 30 seconds for the launching process to exit, updates the same installation directory, and reopens EventLens after success. It does not automatically reboot Windows.
+6. Setup waits up to 30 seconds for the launching process to exit and reopens EventLens after success. Custom directories stay unchanged; the old standard `Elka Software\ELKA EventLens` installation is uninstalled and replaced under `ElkaSoft\ELKA EventLens`. It does not automatically reboot Windows.
 
 Portable mode uses **Download portable ZIP**, stores the ZIP under the app's `Updates` folder, and opens Explorer with the file selected. It never installs to Program Files or closes the portable app automatically. Exit before extracting the update into the existing portable folder, preserving its `Saves`, `Logs`, and `WebView2Profile` directories.
 
@@ -31,7 +31,7 @@ dotnet run --project tests/ELKA.EventLens.Checks/ELKA.EventLens.Checks.csproj --
 
 Default checks use synthetic metadata, packages, and UI fixtures. The optional live check fetches the public feed and verifies a real release download but never executes it. UAC approval itself remains a user action.
 
-The installer wait/install/restart sequence was also exercised with a separate test AppId and harmless executable in a workspace folder. It waited for the launching process, installed the test payload, restarted it, and uninstalled cleanly without touching the real EventLens installation.
+The installer wait/install/restart sequence is exercised with a separate test AppId and harmless executable in a workspace folder. `scripts/Test-LegacyInstaller.ps1` covers remembered old paths, old updater `/DIR` arguments, running-app protection, custom directories, and unrelated-file preservation. Test installation and uninstall do not touch the real EventLens installation.
 
 ## Applied Changes
 

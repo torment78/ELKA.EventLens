@@ -9,6 +9,7 @@ public partial class App : System.Windows.Application
     private MainWindowViewModel? _mainViewModel;
     private NotificationService? _notificationService;
     private ActivityLogService? _activityLogService;
+    private bool _cleanupStarted;
 
     protected override void OnStartup(System.Windows.StartupEventArgs e)
     {
@@ -57,6 +58,14 @@ public partial class App : System.Windows.Application
 
         _mainViewModel?.Dispose();
         base.OnExit(e);
+    }
+
+    internal async Task CleanupLegacyStorageAsync()
+    {
+        if (_cleanupStarted) return;
+        _cleanupStarted = true;
+        foreach (var note in await Task.Run(AppStorageService.CleanupAfterSuccessfulLaunch))
+            _activityLogService?.Write(note);
     }
 
     private void NotificationService_ShowMainRequested(object? sender, EventArgs e)

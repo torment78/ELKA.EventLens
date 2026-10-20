@@ -69,6 +69,9 @@ internal static class UpdateChecks
         var launch = AppUpdateService.InstallerStartInfo("C:\\Update Cache\\setup.exe", "C:\\Program Files\\ElkaSoft\\ELKA EventLens", 1234);
         check(launch.UseShellExecute && launch.Arguments.Contains("/ELKAPID=1234") && launch.Arguments.Contains("/AUTOUPDATE=1"), "installer handoff includes process wait and restart flags");
         check(launch.Arguments.Contains("/DIR=\"C:\\Program Files\\ElkaSoft\\ELKA EventLens\"") && launch.Arguments.Contains("/NORESTART"), "installer preserves target path and cannot reboot Windows automatically");
+        check(AppUpdateService.UpgradeInstallFolder(@"C:\Program Files\Elka Software\ELKA EventLens\", @"C:\Program Files") == @"C:\Program Files\ElkaSoft\ELKA EventLens", "updater remaps the old standard company folder");
+        check(AppUpdateService.UpgradeInstallFolder(@"C:\PROGRAM FILES\ELKA SOFTWARE\ELKA EVENTLENS", @"C:\Program Files") == @"C:\Program Files\ElkaSoft\ELKA EventLens", "legacy target matching ignores case");
+        check(AppUpdateService.UpgradeInstallFolder(@"D:\My Tools\EventLens", @"C:\Program Files") == @"D:\My Tools\EventLens", "updater preserves genuine custom install folders");
         var tampered = downloaded with { Sha256 = new string('0', 64) };
         await RejectAsync(() => AppUpdateService.StartInstallerAsync(tampered), "installer is reverified before execution", check);
         await RejectAsync(() => AppUpdateService.StartInstallerAsync(downloaded with { Release = release with { IsPortable = true } }), "portable download cannot launch installer", check);
